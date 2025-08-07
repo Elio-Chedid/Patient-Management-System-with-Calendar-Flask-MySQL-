@@ -35,23 +35,6 @@ This is a web-based Patient Management System built using **Flask**, **MySQL**, 
 
 ---
 
-## 📁 Project Structure
-
-.
-├── app.py # Flask app routes and logic
-├── templates/
-│ ├── index.html # Main patient listing
-│ ├── patient.html # Edit patient
-│ ├── newpatient.html # Add new patient
-│ ├── calendar.html # FullCalendar view
-├── static/
-│ ├── css/ # Custom styles
-│ └── js/ # Custom JavaScript
-├── requirements.txt # Python dependencies
-└── README.md
-
-
----
 
 ## 🧪 Setup Instructions
 
