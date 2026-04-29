@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><title>Analytics</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-light">
+<nav class="navbar navbar-dark bg-dark mb-4">
+  <div class="container">
+    <a class="navbar-brand" href="{{ url_for('index') }}">🩺 PhysioWay</a>
+    <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+  </div>
+</nav>
+
+<div class="container">
+  <h1 class="mb-4 text-primary">
+    {% if session.role=='admin' %}Global {% endif %}Analytics
+  </h1>
+
+  <!-- ── summary cards ── -->
+  <div class="row mb-4 g-3">
+    <div class="col-md-3">
+      <div class="card text-bg-success shadow-sm h-100"><div class="card-body">
+        <h6 class="card-title mb-0">Revenue</h6>
+        <p class="fs-3 mb-0">${{ "%.2f"|format(total_revenue) }}</p>
+      </div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-bg-danger shadow-sm h-100"><div class="card-body">
+        <h6 class="card-title mb-0">Expenses</h6>
+        <p class="fs-3 mb-0">${{ "%.2f"|format(total_cost) }}</p>
+      </div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-bg-{{ 'primary' if total_profit>=0 else 'warning' }} shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-title mb-0">Net Profit</h6>
+          <p class="fs-3 mb-0">${{ "%.2f"|format(total_profit) }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-bg-info shadow-sm h-100"><div class="card-body">
+        <h6 class="card-title mb-0">Months</h6>
+        <p class="fs-3 mb-0">{{ months|length }}</p>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ── Admin: per-doctor comparison ── -->
+  {% if session.role=='admin' and doctor_stats %}
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold bg-warning">Per-Doctor Performance</div>
+    <div class="card-body">
+      <canvas id="doctorChart" height="80"></canvas>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-striped mb-0">
+        <thead class="table-dark">
+          <tr><th>Doctor</th><th class="text-success">Revenue</th>
+              <th class="text-danger">Expenses</th><th>Profit</th></tr>
+        </thead>
+        <tbody>
+          {% for ds in doctor_stats %}
+          <tr>
+            <td>{{ ds[0] }}</td>
+            <td class="text-success">${{ "%.2f"|format(ds[1]) }}</td>
+            <td class="text-danger">${{ "%.2f"|format(ds[2]) }}</td>
+            <td class="{{ 'text-primary' if ds[3]>=0 else 'text-danger fw-bold' }}">
+              ${{ "%.2f"|format(ds[3]) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── bar chart ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">Revenue vs Expenses per Month</div>
+    <div class="card-body"><canvas id="revExpChart" height="100"></canvas></div>
+  </div>
+
+  <!-- ── profit line ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">Monthly Profit</div>
+    <div class="card-body"><canvas id="profitChart" height="80"></canvas></div>
+  </div>
+
+  <!-- ── monthly table ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">Monthly Breakdown</div>
+    <div class="card-body p-0">
+      <table class="table table-striped mb-0">
+        <thead class="table-dark">
+          <tr><th>Month</th><th class="text-success">Revenue</th>
+              <th class="text-danger">Expenses</th><th>Profit</th></tr>
+        </thead>
+        <tbody>
+          {% for i in range(months|length) %}
+          <tr>
+            <td>{{ months[i] }}</td>
+            <td class="text-success">${{ "%.2f"|format(revenues[i]) }}</td>
+            <td class="text-danger">${{ "%.2f"|format(costs[i]) }}</td>
+            <td class="{{ 'text-primary' if profits[i]>=0 else 'text-danger fw-bold' }}">
+              ${{ "%.2f"|format(profits[i]) }}</td>
+          </tr>
+          {% endfor %}
+          {% if not months %}
+          <tr><td colspan="4" class="text-center text-muted">No data.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── revenue by patient ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">Revenue by Patient &amp; Month</div>
+    <div class="card-body p-0">
+      <table class="table table-bordered table-sm mb-0">
+        <thead class="table-secondary">
+          <tr><th>Patient</th><th>Month</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+          {% for r in detail_rows %}
+          <tr><td>{{ r[0] }}</td><td>{{ r[1] }}</td>
+              <td>${{ "%.2f"|format(r[2]) }}</td></tr>
+          {% endfor %}
+          {% if not detail_rows %}
+          <tr><td colspan="3" class="text-center text-muted">No data.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── expense detail ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">Expense Detail</div>
+    <div class="card-body p-0">
+      <table class="table table-bordered table-sm mb-0">
+        <thead class="table-secondary">
+          <tr><th>Month</th><th>Description</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+          {% for r in expense_detail_rows %}
+          <tr><td>{{ r[0] }}</td><td>{{ r[1] }}</td>
+              <td>${{ "%.2f"|format(r[2]) }}</td></tr>
+          {% endfor %}
+          {% if not expense_detail_rows %}
+          <tr><td colspan="3" class="text-center text-muted">No expenses.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mb-4">
+    <a href="{{ url_for('index') }}"    class="btn btn-secondary">← Patients</a>
+    <a href="{{ url_for('expenses') }}" class="btn btn-dark">Expenses</a>
+  </div>
+</div>
+
+<script>
+const months={{ months|tojson }};
+const revenues={{ revenues|tojson }};
+const costs={{ costs|tojson }};
+const profits={{ profits|tojson }};
+
+new Chart(document.getElementById('revExpChart').getContext('2d'),{
+  type:'bar',
+  data:{labels:months,datasets:[
+    {label:'Revenue ($)',data:revenues,
+     backgroundColor:'rgba(40,167,69,.6)',borderColor:'rgba(40,167,69,1)',borderWidth:1},
+    {label:'Expenses ($)',data:costs,
+     backgroundColor:'rgba(220,53,69,.6)',borderColor:'rgba(220,53,69,1)',borderWidth:1}
+  ]},
+  options:{responsive:true,
+    scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v}}}}
+});
+
+new Chart(document.getElementById('profitChart').getContext('2d'),{
+  type:'line',
+  data:{labels:months,datasets:[{
+    label:'Profit ($)',data:profits,fill:true,tension:.3,
+    borderColor:'rgba(13,110,253,1)',borderWidth:2,pointRadius:5,
+    backgroundColor:profits.map(v=>v>=0?'rgba(13,110,253,.15)':'rgba(220,53,69,.15)'),
+    pointBackgroundColor:profits.map(v=>v>=0?'rgba(13,110,253,1)':'rgba(220,53,69,1)')
+  }]},
+  options:{responsive:true,
+    scales:{y:{ticks:{callback:v=>'$'+v}}}}
+});
+
+{% if session.role=='admin' and doctor_stats %}
+const dsNames={{ doctor_stats|map(attribute=0)|list|tojson }};
+const dsRev={{ doctor_stats|map(attribute=1)|list|tojson }};
+const dsExp={{ doctor_stats|map(attribute=2)|list|tojson }};
+new Chart(document.getElementById('doctorChart').getContext('2d'),{
+  type:'bar',
+  data:{labels:dsNames,datasets:[
+    {label:'Revenue ($)',data:dsRev,
+     backgroundColor:'rgba(40,167,69,.6)',borderColor:'rgba(40,167,69,1)',borderWidth:1},
+    {label:'Expenses ($)',data:dsExp,
+     backgroundColor:'rgba(220,53,69,.6)',borderColor:'rgba(220,53,69,1)',borderWidth:1}
+  ]},
+  options:{responsive:true,indexAxis:'y',
+    scales:{x:{beginAtZero:true,ticks:{callback:v=>'$'+v}}}}
+});
+{% endif %}
+</script>
+</body>
+</html>

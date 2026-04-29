@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><title>Manage Doctors</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<nav class="navbar navbar-dark bg-dark mb-4">
+  <div class="container">
+    <a class="navbar-brand" href="{{ url_for('index') }}">🩺 PhysioWay</a>
+    <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+  </div>
+</nav>
+
+<div class="container">
+  <h1 class="mb-4 text-warning">Manage Doctors</h1>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }} alert-dismissible fade show">
+        {{ msg }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- doctors[row]: 0:id  1:username  2:hash  3:full_name  4:role  5:patient_cnt  6:revenue -->
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>Username</th>
+          <th>Full Name</th>
+          <th>Role</th>
+          <th>Patients</th>
+          <th>Revenue</th>
+          <th style="width:180px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in doctors %}
+        <tr>
+          <td>{{ doc[1] }}</td>
+          <td>{{ doc[3] }}</td>
+          <td>
+            <span class="badge bg-{{ 'danger' if doc[4]=='admin' else 'info' }}">
+              {{ doc[4] }}
+            </span>
+          </td>
+          <td>{{ doc[5] }}</td>
+          <td>${{ "%.2f"|format(doc[6]) }}</td>
+          <td>
+            <div class="d-flex gap-1">
+              <!-- delete -->
+              <form method="POST" action="{{ url_for('delete_doctor') }}">
+                <input type="hidden" name="doctor_id" value="{{ doc[0] }}">
+                <button class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Delete {{ doc[3] }}?')">
+                  Delete
+                </button>
+              </form>
+              <!-- reset pw button -->
+              <button class="btn btn-sm btn-outline-secondary"
+                      data-bs-toggle="modal" data-bs-target="#resetModal"
+                      onclick="document.getElementById('resetDocId').value='{{ doc[0] }}';
+                               document.getElementById('resetLabel').textContent='{{ doc[3] }}';">
+                Reset PW
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <a href="{{ url_for('add_doctor') }}" class="btn btn-success">+ Add New Doctor</a>
+  <a href="{{ url_for('index') }}" class="btn btn-secondary ms-2">← Patients</a>
+</div>
+
+<!-- RESET PASSWORD MODAL -->
+<div class="modal fade" id="resetModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('reset_password') }}">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            Reset Password — <span id="resetLabel"></span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="doctor_id" id="resetDocId">
+          <label class="form-label">New Password</label>
+          <input type="password" name="new_password" class="form-control"
+                 required minlength="4">
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary">Reset</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
