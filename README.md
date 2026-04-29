@@ -1,104 +1,154 @@
-# 🩺 Patient Management System with Calendar (Flask + MySQL)
+# PhysioWay — Physiotherapy Practice Management System
 
-This is a web-based Patient Management System built using **Flask**, **MySQL**, and **FullCalendar.js**. It allows users to:
-
-- Add, edit, and delete patients
-- Track session history and financial details
-- View and manage sessions via an interactive calendar
-- Store multiple session dates (with time) for each patient
+A Flask-based web application for managing patients, appointments, payments, expenses, and staff at a physiotherapy clinic.
 
 ---
 
-## 🛠 Features
+## ✨ Features
 
-- 📋 Patient List View with Search, Sort, and Delete options
-- 📝 Add / Edit Patient with:
-  - Personal details
-  - Case type & description
-  - Session history
-  - Total and paid fees
-- 📅 FullCalendar integration to visualize upcoming sessions
-- 🕒 Support for multiple session timestamps stored as strings
-- 🎨 Clean and responsive Bootstrap UI
-
----
-
-## 🚀 Tech Stack
-
-| Tech        | Description                      |
-|-------------|----------------------------------|
-| Python      | Flask Web Framework              |
-| MySQL       | Relational Database              |
-| Jinja2      | HTML Templating Engine           |
-| Bootstrap 5 | Responsive UI Framework          |
-| FullCalendar| JS Library for Interactive Calendar |
+- **Multi-role authentication** — Admin and Doctor roles with session-based login
+- **Patient management** — Add, edit, and delete patient records with case details, session history, and fees
+- **Appointment scheduling** — Track first and follow-up sessions per patient
+- **Payment tracking** — Log, view, and delete individual payments; paid fees auto-recalculated
+- **Expense management** — Add and delete clinic expenses, filterable by doctor
+- **WhatsApp reminders** — Manual (and optional automated) appointment reminders via Twilio
+- **Analytics dashboard** — Monthly revenue, expenses, and profit charts; per-doctor breakdowns (admin only)
+- **Calendar view** — FullCalendar-powered visual schedule of all patient sessions
+- **Doctor management** — Admin can create, delete, and reset passwords for doctor accounts
 
 ---
 
+## 📁 Project Structure
+
+```
+.
+├── app.py                  # Flask routes, auth, DB helpers, Twilio integration
+├── config.py               # App config (DB credentials, secret key, etc.)
+├── templates/
+│   ├── index.html          # Main patient listing
+│   ├── patient.html        # Edit patient / payments / reminders
+│   ├── newpatient.html     # Add new patient
+│   ├── calendar.html       # FullCalendar session view
+│   ├── analytics.html      # Revenue, expense & profit charts
+│   ├── expenses.html       # Expense listing
+│   ├── new_expense.html    # Add expense form
+│   ├── manage_doctors.html # Admin: doctor list & stats
+│   ├── add_doctor.html     # Admin: create doctor account
+│   └── login.html          # Login page
+├── static/
+│   ├── css/                # Custom styles
+│   └── js/                 # Custom JavaScript
+├── requirements.txt        # Python dependencies
+└── README.md
+```
+
+---
+
+## 🗄️ Database Schema
+
+The app expects a MySQL database with the following tables:
+
+| Table | Key Columns |
+|---|---|
+| `doctors` | `id`, `username`, `password_hash`, `full_name`, `role` |
+| `patient` | `id`, `name`, `details`, `casetype`, `description`, `lastsession`, `nextsession`, `totalfees`, `paidfees`, `doctor_id` |
+| `payments` | `id`, `patient_id`, `amount`, `payment_date` |
+| `expenses` | `id`, `description`, `amount`, `expense_date`, `doctor_id` |
+| `reminders_sent` | `id`, `patient_id`, `session_datetime`, `sent_at` |
+
+---
 
 ## 🧪 Setup Instructions
 
-1. **Clone the repository**
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/patient-calendar-flask.git
-cd patient-calendar-flask
-Create a virtual environment (optional but recommended)
+git clone <repo-url>
+cd physioway
+```
 
+### 2. Create a virtual environment and install dependencies
 
+```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-Install dependencies
-
-
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-Configure MySQL
+```
 
-Create a database named william
+### 3. Configure the application
 
-Import your patient table with the following structure:
+Edit `config.py` with your database credentials and secret key:
 
+```python
+MYSQL_HOST     = 'localhost'
+MYSQL_USER     = 'your_db_user'
+MYSQL_PASSWORD = 'your_db_password'
+MYSQL_DB       = 'physioway'
+SECRET_KEY     = 'your_secret_key'
+```
 
-CREATE TABLE `patient` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `name` TEXT NOT NULL,
-  `details` TEXT NOT NULL,
-  `casetype` TEXT NOT NULL,
-  `description` TEXT NOT NULL,
-  `lastsession` TEXT,
-  `nextsession` TEXT,
-  `totalfees` FLOAT,
-  `paidfees` FLOAT
-);
-Update your database config in app.py
+### 4. Set up Twilio (for WhatsApp reminders)
 
+In `app.py`, replace the placeholder credentials:
 
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'your_user'
-app.config['MYSQL_PASSWORD'] = 'your_password'
-app.config['MYSQL_DB'] = 'william'
-Run the app
+```python
+sid   = "YOUR_TWILIO_ACCOUNT_SID"
+token = "YOUR_TWILIO_AUTH_TOKEN"
+```
 
+Ensure your Twilio sandbox number is configured for WhatsApp (`whatsapp:+14155238886` or your own).
 
+### 5. Set up the MySQL database
+
+Create the database and tables matching the schema above, then run the app — it will auto-create a default admin account on first launch:
+
+```
+Username: admin
+Password: admin123
+```
+
+> ⚠️ Change the admin password immediately after first login.
+
+### 6. Run the application
+
+```bash
 python app.py
-Then open http://127.0.0.1:5000 in your browser.
+```
 
-🗓 Calendar Functionality
-The nextsession field can store multiple dates as a comma-separated string:
+The app runs on `http://0.0.0.0:5001` by default.
 
+---
 
-2025-09-04T15:40, 2025-09-06T11:20, 2025-09-10T15:00
-These dates are parsed and rendered as calendar events using FullCalendar.
+## 👤 Roles & Permissions
 
-✅ TODO (Suggestions)
-Add login/authentication
+| Feature | Doctor | Admin |
+|---|---|---|
+| View own patients | ✅ | ✅ (all) |
+| Add / edit patients | ✅ | ✅ |
+| Delete patients | ✅ (own) | ✅ (all) |
+| Manage payments | ✅ | ✅ |
+| Manage expenses | ✅ (own) | ✅ (all) |
+| Analytics | Own data | Full clinic |
+| Manage doctors | ❌ | ✅ |
+| Reset passwords | ❌ | ✅ |
 
-Implement search/filter functionality
+---
 
-Validate and format session dates on input
+## 📲 WhatsApp Reminders
 
-Add export/reporting options (PDF/Excel)
+Patient phone numbers are extracted from the `details` field using the `+961` prefix (Lebanese numbers). The `sendwtsp()` function sends a formatted reminder via the Twilio WhatsApp sandbox.
 
-📄 License
-This project is open-source and free to use under the MIT License.
+**Manual reminders** can be triggered from the patient edit page for any scheduled session.
 
+**Automated reminders** (sends 2 hours before a session) are implemented but currently commented out. To enable, uncomment the scheduler block in `app.py` and ensure the `reminders_sent` table exists to prevent duplicate sends.
+
+---
+
+## 📦 Key Dependencies
+
+- [Flask](https://flask.palletsprojects.com/)
+- [Flask-MySQLdb](https://flask-mysqldb.readthedocs.io/)
+- [Werkzeug](https://werkzeug.palletsprojects.com/) — password hashing
+- [APScheduler](https://apscheduler.readthedocs.io/) — background reminder scheduling
+- [Twilio](https://www.twilio.com/docs) — WhatsApp messaging
+- [FullCalendar](https://fullcalendar.io/) — calendar view (via CDN in template)
