@@ -6,9 +6,17 @@
 </head>
 <body class="bg-light">
 <nav class="navbar navbar-dark bg-dark mb-4">
-  <div class="container">
+  <div class="container-fluid">
     <a class="navbar-brand" href="{{ url_for('index') }}">🩺 PhysioWay</a>
-    <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <a href="{{ url_for('index') }}"     class="btn btn-sm btn-outline-light">← Patients</a>
+      <a href="{{ url_for('add_new') }}"   class="btn btn-sm btn-success">+ Add Patient</a>
+      <a href="{{ url_for('calendar') }}"  class="btn btn-sm btn-info">Calendar</a>
+      <a href="{{ url_for('analytics') }}" class="btn btn-sm btn-primary">Analytics</a>
+      <a href="{{ url_for('expenses') }}"  class="btn btn-sm btn-dark">Expenses</a>
+      <a href="{{ url_for('settings_view') }}" class="btn btn-sm btn-secondary">Settings</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">Logout</a>
+    </div>
   </div>
 </nav>
 

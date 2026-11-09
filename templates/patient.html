@@ -7,16 +7,35 @@
 
 <body class="bg-light">
 <nav class="navbar navbar-dark bg-dark mb-4">
-  <div class="container">
+  <div class="container-fluid">
     <a class="navbar-brand" href="{{ url_for('index') }}">🩺 PhysioWay</a>
-    <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <a href="{{ url_for('index') }}"     class="btn btn-sm btn-outline-light">← Patients</a>
+      <a href="{{ url_for('calendar') }}"  class="btn btn-sm btn-info">Calendar</a>
+      <a href="{{ url_for('analytics') }}" class="btn btn-sm btn-primary">Analytics</a>
+      <a href="{{ url_for('expenses') }}"  class="btn btn-sm btn-dark">Expenses</a>
+      {% if session.role=='admin' %}
+        <a href="{{ url_for('manage_doctors') }}" class="btn btn-sm btn-warning">Doctors</a>
+        <a href="{{ url_for('settings_view') }}"  class="btn btn-sm btn-secondary">Settings</a>
+      {% endif %}
+      <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">Logout</a>
+    </div>
   </div>
 </nav>
 
 <div class="container">
   <h1 class="mb-4 text-primary">Edit: {{ data[1] }}</h1>
 
-  <form method="POST" action="{{ url_for('update_patient') }}">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }} alert-dismissible fade show">
+        {{ msg }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="POST" action="{{ url_for('update_patient') }}" enctype="multipart/form-data">
     <input type="hidden" name="id" value="{{ data[0] }}">
 
     {% if session.role=='admin' %}
@@ -26,7 +45,7 @@
         <option value="">— Unassigned —</option>
         {% for doc in doctors %}
           <option value="{{ doc[0] }}"
-            {{ 'selected' if doc[0]==data[9] }}>{{ doc[1] }}</option>
+            {{ 'selected' if doc[0]==data[6] }}>{{ doc[1] }}</option>
         {% endfor %}
       </select>
     </div>
@@ -35,8 +54,8 @@
     <div class="row mb-3">
       <div class="col">
         <label class="form-label">Name</label>
-        <input type="text" name="name" value="{{ data[1] }}" readonly
-               class="form-control-plaintext">
+        <input type="text" name="name" value="{{ data[1] }}"
+               class="form-control" required>
       </div>
       <div class="col">
         <label class="form-label">Case Type</label>
@@ -48,59 +67,130 @@
       <label class="form-label">Details</label>
       <textarea name="details" class="form-control" rows="3">{{ data[2] }}</textarea>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Description</label>
-      <textarea name="description" class="form-control" rows="3">{{ data[4] }}</textarea>
-    </div>
 
-    <div class="mb-3">
-      <label class="form-label">First Session</label>
-      <div class="d-flex align-items-center">
-        <input type="datetime-local" name="firstsession"
-               value="{{ data[5] }}" class="form-control">
-        {% if data[5] and data[5].strip() in reminded_sessions %}
-          <span class="badge bg-success ms-2 text-nowrap">✓ Reminded</span>
-        {% elif data[5] %}
-          <button type="button" class="btn btn-sm btn-outline-info ms-2 text-nowrap"
-                  onclick="sendR('{{ data[0] }}','{{ data[5].strip() }}')">📱 Send</button>
-        {% endif %}
-      </div>
-    </div>
+    <hr class="my-4">
+    <h4 class="text-primary">Sessions</h4>
+    <p class="text-muted small">
+      Each session has its own description. Use the 📱 button to send a
+      WhatsApp reminder for a specific session.
+    </p>
 
-    <div class="mb-4">
-      <label class="form-label">Next Sessions</label>
-      <div id="nextSessions">
-        {% if sessions %}
-          {% for s in sessions %}
-          <div class="d-flex mb-2 align-items-center">
-            <input type="datetime-local" name="nextsession[]"
-                   value="{{ s.strip() }}" class="form-control">
-            {% if s.strip() in reminded_sessions %}
-              <span class="badge bg-success ms-2 text-nowrap">✓ Reminded</span>
-            {% else %}
-              <button type="button"
-                class="btn btn-sm btn-outline-info ms-2 text-nowrap"
-                onclick="sendR('{{ data[0] }}','{{ s.strip() }}')">📱 Send</button>
-            {% endif %}
-            <button type="button" class="btn btn-outline-danger ms-2"
-                    onclick="this.parentElement.remove()">✕</button>
+    <div id="sessionsContainer">
+      {% if sessions %}
+        {% for s in sessions %}
+          {% set sid = s[0] %}
+          {% set sdt = s[1] %}
+          {% set sdesc = s[2] %}
+          {% set sfirst = s[3] %}
+          <div class="session-block border rounded p-3 mb-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="{{ 'text-primary' if sfirst else 'text-secondary' }} mb-0">
+                {{ 'First Session' if sfirst else 'Next Session' }}
+              </h6>
+              <div class="d-flex gap-2 align-items-center">
+                {% if sdt and sdt in reminded_sessions %}
+                  <span class="badge bg-success">✓ Reminded</span>
+                {% elif sdt %}
+                  <button type="button" class="btn btn-sm btn-outline-info"
+                          onclick="sendR('{{ data[0] }}','{{ sdt }}')">
+                    📱 Send Reminder
+                  </button>
+                {% endif %}
+                {% if not sfirst %}
+                  <button type="button" class="btn btn-sm btn-outline-danger"
+                          onclick="this.closest('.session-block').remove()">
+                    ✕ Remove
+                  </button>
+                {% endif %}
+              </div>
+            </div>
+            <div class="row g-2">
+              <div class="col-md-5">
+                <label class="form-label">Date / Time</label>
+                <input type="datetime-local" name="session_datetime[]"
+                       value="{{ sdt }}" class="form-control">
+              </div>
+              <div class="col-md-7">
+                <label class="form-label">Session description</label>
+                <textarea name="session_description[]" rows="2"
+                          class="form-control">{{ sdesc or '' }}</textarea>
+              </div>
+            </div>
           </div>
-          {% endfor %}
-        {% else %}
-          <input type="datetime-local" name="nextsession[]" class="form-control mb-2">
-        {% endif %}
-      </div>
-      <button type="button" class="btn btn-sm btn-outline-primary"
-              onclick="addNS()">+ Add Next Session</button>
+        {% endfor %}
+      {% else %}
+        <!-- empty first session -->
+        <div class="session-block border rounded p-3 mb-3 bg-white">
+          <h6 class="text-primary mb-2">First Session</h6>
+          <div class="row g-2">
+            <div class="col-md-5">
+              <label class="form-label">Date / Time</label>
+              <input type="datetime-local" name="session_datetime[]"
+                     class="form-control">
+            </div>
+            <div class="col-md-7">
+              <label class="form-label">Session description</label>
+              <textarea name="session_description[]" rows="2"
+                        class="form-control"></textarea>
+            </div>
+          </div>
+        </div>
+      {% endif %}
     </div>
 
+    <button type="button" class="btn btn-sm btn-outline-primary mb-4"
+            onclick="addSession()">+ Add Next Session</button>
+
     <div class="mb-4">
-      <label class="form-label">Total Fees</label>
+      <label class="form-label">Total Fees ($)</label>
       <input type="number" step="0.01" name="totalfees"
-             value="{{ data[7] }}" class="form-control">
+             value="{{ data[4] }}" class="form-control">
     </div>
+
+    <hr class="my-4">
+    <h4 class="text-info">Documents</h4>
+
+    {% if documents %}
+    <div class="row g-2 mb-3">
+      {% for d in documents %}
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body py-2 d-flex justify-content-between align-items-center">
+            <div class="text-truncate me-2">
+              {% if d[3].startswith('image/') %}🖼️
+              {% elif d[3] == 'application/pdf' %}📄
+              {% else %}📎{% endif %}
+              <a href="{{ url_for('serve_document', doc_id=d[0]) }}"
+                 target="_blank">{{ d[1] }}</a>
+              <span class="text-muted small d-block">{{ d[4] }}</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger"
+                    onclick="deleteDoc('{{ d[0] }}','{{ d[1]|e }}')">✕</button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No documents uploaded yet.</p>
+    {% endif %}
+
+    <label class="form-label">Upload more documents</label>
+    <input type="file" name="documents[]" class="form-control mb-3"
+           accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,image/*,application/pdf"
+           multiple>
+    <p class="form-text mb-4">
+      Allowed: PNG, JPG, GIF, WEBP, PDF. Max 25 MB per file.
+    </p>
 
     <button type="submit" class="btn btn-primary">Save Changes</button>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary ms-2">Cancel</a>
+  </form>
+
+  <!-- hidden delete-document form (submitted via JS) -->
+  <form id="deleteDocForm" method="POST"
+        action="{{ url_for('delete_document') }}" style="display:none">
+    <input type="hidden" name="document_id" id="deleteDocId">
   </form>
 
   <!-- ── PAYMENTS ── -->
@@ -110,18 +200,18 @@
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="card text-bg-light"><div class="card-body py-2">
-        <strong>Total:</strong> ${{ data[7] }}
+        <strong>Total:</strong> ${{ data[4] }}
       </div></div>
     </div>
     <div class="col-md-4">
       <div class="card text-bg-success"><div class="card-body py-2">
-        <strong>Paid:</strong> ${{ data[8] }}
+        <strong>Paid:</strong> ${{ data[5] }}
       </div></div>
     </div>
     <div class="col-md-4">
-      <div class="card text-bg-{{ 'warning' if (data[7]|float)-(data[8]|float)>0 else 'light' }}">
+      <div class="card text-bg-{{ 'warning' if (data[4]|float)-(data[5]|float)>0 else 'light' }}">
         <div class="card-body py-2">
-          <strong>Remaining:</strong> ${{ (data[7]|float)-(data[8]|float) }}
+          <strong>Remaining:</strong> ${{ (data[4]|float)-(data[5]|float) }}
         </div>
       </div>
     </div>
@@ -190,26 +280,56 @@
   {% endif %}
 </div>
 
+<!-- TEMPLATE for new "next" session block -->
+<template id="sessionTemplate">
+  <div class="session-block border rounded p-3 mb-3 bg-white">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="text-secondary mb-0">Next Session</h6>
+      <button type="button" class="btn btn-sm btn-outline-danger"
+              onclick="this.closest('.session-block').remove()">
+        ✕ Remove
+      </button>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-5">
+        <label class="form-label">Date / Time</label>
+        <input type="datetime-local" name="session_datetime[]"
+               class="form-control">
+      </div>
+      <div class="col-md-7">
+        <label class="form-label">Session description</label>
+        <textarea name="session_description[]" rows="2"
+                  class="form-control"></textarea>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script>
-function addNS(){
-  const w=document.createElement("div");
-  w.className="d-flex mb-2 align-items-center";
-  const i=document.createElement("input");
-  i.type="datetime-local"; i.name="nextsession[]"; i.className="form-control";
-  const b=document.createElement("button");
-  b.type="button"; b.className="btn btn-outline-danger ms-2";
-  b.innerHTML="✕"; b.onclick=()=>w.remove();
-  w.appendChild(i); w.appendChild(b);
-  document.getElementById("nextSessions").appendChild(w);
+function addSession(){
+  const tpl   = document.getElementById('sessionTemplate');
+  const clone = tpl.content.cloneNode(true);
+  document.getElementById('sessionsContainer').appendChild(clone);
 }
-function sendR(pid,sdt){
+
+function sendR(pid, sdt){
   if(!confirm('Send WhatsApp reminder for '+sdt+'?')) return;
-  const f=document.createElement('form');
-  f.method='POST'; f.action='{{ url_for("send_reminder") }}';
-  f.innerHTML='<input type="hidden" name="patient_id" value="'+pid+'">'
-             +'<input type="hidden" name="session_datetime" value="'+sdt+'">';
-  document.body.appendChild(f); f.submit();
+  const f = document.createElement('form');
+  f.method = 'POST';
+  f.action = '{{ url_for("send_reminder") }}';
+  f.innerHTML = '<input type="hidden" name="patient_id"        value="'+pid+'">'
+              + '<input type="hidden" name="session_datetime"  value="'+sdt+'">';
+  document.body.appendChild(f);
+  f.submit();
+}
+
+function deleteDoc(id, name){
+  if(!confirm('Delete document "'+name+'"?')) return;
+  document.getElementById('deleteDocId').value = id;
+  document.getElementById('deleteDocForm').submit();
 }
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

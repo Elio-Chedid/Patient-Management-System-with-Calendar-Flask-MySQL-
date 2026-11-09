@@ -7,16 +7,26 @@
 
 <body class="bg-light">
 <nav class="navbar navbar-dark bg-dark mb-4">
-  <div class="container">
+  <div class="container-fluid">
     <a class="navbar-brand" href="{{ url_for('index') }}">🩺 PhysioWay</a>
-    <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <a href="{{ url_for('index') }}"     class="btn btn-sm btn-outline-light">← Patients</a>
+      <a href="{{ url_for('calendar') }}"  class="btn btn-sm btn-info">Calendar</a>
+      <a href="{{ url_for('analytics') }}" class="btn btn-sm btn-primary">Analytics</a>
+      <a href="{{ url_for('expenses') }}"  class="btn btn-sm btn-dark">Expenses</a>
+      {% if session.role=='admin' %}
+        <a href="{{ url_for('manage_doctors') }}" class="btn btn-sm btn-warning">Doctors</a>
+        <a href="{{ url_for('settings_view') }}"  class="btn btn-sm btn-secondary">Settings</a>
+      {% endif %}
+      <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">Logout</a>
+    </div>
   </div>
 </nav>
 
 <div class="container">
   <h1 class="mb-4 text-success">Add New Patient</h1>
 
-  <form method="POST" action="{{ url_for('add_new') }}">
+  <form method="POST" action="{{ url_for('add_new') }}" enctype="multipart/form-data">
 
     {% if session.role=='admin' %}
     <div class="mb-3">
@@ -32,41 +42,77 @@
 
     <div class="mb-3">
       <label class="form-label">Name</label>
-      <input type="text" name="name" class="form-control" placeholder="Enter name">
+      <input type="text" name="name" class="form-control" required>
     </div>
     <div class="mb-3">
       <label class="form-label">Details</label>
-      <textarea name="details" class="form-control" rows="3"></textarea>
+      <textarea name="details" class="form-control" rows="3"
+                placeholder="address, phone (+961...), etc."></textarea>
     </div>
     <div class="mb-3">
       <label class="form-label">Case Type</label>
       <input type="text" name="casetype" class="form-control">
     </div>
-    <div class="mb-3">
-      <label class="form-label">Description</label>
-      <textarea name="description" class="form-control" rows="3"></textarea>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">First Session</label>
-      <input type="datetime-local" name="firstsession" class="form-control">
-    </div>
 
-    <div class="mb-4">
-      <label class="form-label">Next Sessions</label>
-      <div id="nextSessions">
-        <input type="datetime-local" name="nextsession[]" class="form-control mb-2">
+    <hr class="my-4">
+    <h4 class="text-success">Sessions</h4>
+    <p class="text-muted small">
+      Each session has its own description. The first session is required;
+      add as many follow-up sessions as you need.
+    </p>
+
+    <!-- FIRST SESSION -->
+    <div class="session-block border rounded p-3 mb-3 bg-white">
+      <h6 class="text-primary mb-2">First Session</h6>
+      <div class="row g-2">
+        <div class="col-md-5">
+          <label class="form-label">Date / Time</label>
+          <input type="datetime-local" name="session_datetime[]"
+                 class="form-control">
+        </div>
+        <div class="col-md-7">
+          <label class="form-label">Session description</label>
+          <textarea name="session_description[]" rows="2"
+                    class="form-control"
+                    placeholder="What happened in this session..."></textarea>
+        </div>
       </div>
-      <button type="button" class="btn btn-sm btn-outline-primary"
-              onclick="addNS()">+ Add Next Session</button>
     </div>
 
+    <!-- NEXT SESSIONS CONTAINER -->
+    <div id="nextSessions"></div>
+
+    <button type="button" class="btn btn-sm btn-outline-primary mb-4"
+            onclick="addSession()">+ Add Next Session</button>
+
     <div class="mb-3">
-      <label class="form-label">Total Fees</label>
-      <input type="number" step="0.01" name="totalfees" class="form-control">
+      <label class="form-label">Total Fees ($)</label>
+      <input type="number" step="0.01" name="totalfees"
+             class="form-control" required>
     </div>
 
     <div class="card mb-4">
-      <div class="card-header bg-success text-white">Initial Payment (optional)</div>
+      <div class="card-header bg-info text-white">
+        Documents (optional)
+      </div>
+      <div class="card-body">
+        <label class="form-label">
+          Upload pictures or PDFs (X-rays, prescriptions, scans, etc.)
+        </label>
+        <input type="file" name="documents[]" class="form-control"
+               accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,image/*,application/pdf"
+               multiple>
+        <p class="form-text">
+          Allowed: PNG, JPG, GIF, WEBP, PDF. Max 25 MB per file.
+          You can pick several files at once.
+        </p>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header bg-success text-white">
+        Initial Payment (optional)
+      </div>
       <div class="card-body row">
         <div class="col">
           <label class="form-label">Amount</label>
@@ -82,15 +128,40 @@
     </div>
 
     <button type="submit" class="btn btn-success">Add Patient</button>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary ms-2">Cancel</a>
   </form>
 </div>
 
+<!-- TEMPLATE for next session block -->
+<template id="sessionTemplate">
+  <div class="session-block border rounded p-3 mb-3 bg-white">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="text-secondary mb-0">Next Session</h6>
+      <button type="button" class="btn btn-sm btn-outline-danger"
+              onclick="this.closest('.session-block').remove()">
+        ✕ Remove
+      </button>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-5">
+        <label class="form-label">Date / Time</label>
+        <input type="datetime-local" name="session_datetime[]"
+               class="form-control">
+      </div>
+      <div class="col-md-7">
+        <label class="form-label">Session description</label>
+        <textarea name="session_description[]" rows="2"
+                  class="form-control"></textarea>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script>
-function addNS(){
-  const i=document.createElement("input");
-  i.type="datetime-local"; i.name="nextsession[]";
-  i.className="form-control mb-2";
-  document.getElementById("nextSessions").appendChild(i);
+function addSession(){
+  const tpl = document.getElementById('sessionTemplate');
+  const clone = tpl.content.cloneNode(true);
+  document.getElementById('nextSessions').appendChild(clone);
 }
 </script>
 </body>

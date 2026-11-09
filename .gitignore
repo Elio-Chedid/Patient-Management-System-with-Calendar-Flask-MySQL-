@@ -1,0 +1,22 @@
+# Local configuration (contains credentials)
+config.py
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# WhatsApp session credentials
+auth_info/
+
+# Uploaded patient documents
+uploads/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

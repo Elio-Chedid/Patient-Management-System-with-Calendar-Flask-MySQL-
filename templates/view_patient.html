@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><title>{{ data[1] }} — Patient Info</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    dl.info-list dt { color:#6c757d; font-weight:500; }
+    dl.info-list dd { margin-bottom:.75rem; white-space:pre-wrap; }
+    .session-card { border-left:4px solid #0d6efd; }
+    .session-card.first { border-left-color:#198754; }
+  </style>
+</head>
+
+<body class="bg-light">
+<nav class="navbar navbar-dark bg-dark mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('index') }}">🩺 PhysioWay</a>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <a href="{{ url_for('index') }}"     class="btn btn-sm btn-outline-light">← Patients</a>
+      <a href="{{ url_for('add_new') }}"   class="btn btn-sm btn-success">+ Add Patient</a>
+      <a href="{{ url_for('calendar') }}"  class="btn btn-sm btn-info">Calendar</a>
+      <a href="{{ url_for('analytics') }}" class="btn btn-sm btn-primary">Analytics</a>
+      <a href="{{ url_for('expenses') }}"  class="btn btn-sm btn-dark">Expenses</a>
+      {% if session.role=='admin' %}
+        <a href="{{ url_for('manage_doctors') }}" class="btn btn-sm btn-warning">Doctors</a>
+        <a href="{{ url_for('settings_view') }}"  class="btn btn-sm btn-secondary">Settings</a>
+      {% endif %}
+      <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">Logout</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  {% set total_fees = data[4]|float %}
+  {% set paid_fees  = data[5]|float %}
+  {% set remaining  = total_fees - paid_fees %}
+
+  <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+    <div>
+      <h1 class="mb-1">{{ data[1] }}</h1>
+      <div class="text-muted">
+        {% if data[3] %}<span class="badge bg-info text-dark me-1">{{ data[3] }}</span>{% endif %}
+        {% if data[7] %}<span class="badge bg-secondary">Dr. {{ data[7] }}</span>
+        {% elif session.role=='admin' %}<span class="badge bg-light text-dark">Unassigned</span>{% endif %}
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('edit_patient', id=data[0]) }}"
+         class="btn btn-warning">✎ Edit</a>
+      <form method="POST" action="{{ url_for('delete_patient') }}"
+            style="display:inline">
+        <input type="hidden" name="patient_id" value="{{ data[0] }}">
+        <button class="btn btn-danger"
+                onclick="return confirm('Delete this patient?')">Delete</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── FINANCIAL SUMMARY ── -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card text-bg-light shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="text-muted mb-0">Total Fees</h6>
+          <p class="fs-3 mb-0">${{ "%.2f"|format(total_fees) }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-bg-success shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="mb-0">Paid</h6>
+          <p class="fs-3 mb-0">${{ "%.2f"|format(paid_fees) }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-bg-{{ 'warning' if remaining>0 else 'secondary' }} shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="mb-0">Remaining</h6>
+          <p class="fs-3 mb-0">${{ "%.2f"|format(remaining) }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PATIENT DETAILS ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">Details</div>
+    <div class="card-body">
+      <dl class="info-list row mb-0">
+        <dt class="col-sm-3">Name</dt>
+        <dd class="col-sm-9">{{ data[1] }}</dd>
+
+        <dt class="col-sm-3">Case Type</dt>
+        <dd class="col-sm-9">{{ data[3] or '—' }}</dd>
+
+        <dt class="col-sm-3">Contact / Details</dt>
+        <dd class="col-sm-9">{{ data[2] or '—' }}</dd>
+
+        {% if session.role=='admin' %}
+        <dt class="col-sm-3">Assigned Doctor</dt>
+        <dd class="col-sm-9">{{ data[7] or 'Unassigned' }}</dd>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+  <!-- ── SESSIONS ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold d-flex justify-content-between">
+      <span>Sessions ({{ sessions|length }})</span>
+    </div>
+    <div class="card-body">
+      {% if sessions %}
+        {% for s in sessions %}
+        <div class="card session-card mb-3 {{ 'first' if s[3] }}">
+          <div class="card-body py-3">
+            <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+              <div>
+                <span class="badge bg-{{ 'success' if s[3] else 'primary' }} me-2">
+                  {{ 'First Session' if s[3] else 'Session ' ~ loop.index }}
+                </span>
+                {% if s[1] %}
+                  <strong>{{ s[1].replace('T', ' at ') }}</strong>
+                {% else %}
+                  <em class="text-muted">No date set</em>
+                {% endif %}
+              </div>
+              {% if s[1] and s[1].strip() in reminded_sessions %}
+                <span class="badge bg-success">✓ Reminder sent</span>
+              {% endif %}
+            </div>
+            {% if s[2] %}
+              <div class="text-body" style="white-space:pre-wrap">{{ s[2] }}</div>
+            {% else %}
+              <p class="text-muted small mb-0"><em>No description recorded.</em></p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted mb-0">No sessions recorded yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── PAYMENTS ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">Payment History ({{ payments|length }})</div>
+    <div class="card-body p-0">
+      {% if payments %}
+      <table class="table table-striped mb-0">
+        <thead class="table-light">
+          <tr><th>Date</th><th class="text-end">Amount</th></tr>
+        </thead>
+        <tbody>
+          {% for p in payments %}
+          <tr>
+            <td>{{ p[2] }}</td>
+            <td class="text-end">${{ "%.2f"|format(p[1]|float) }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="table-success fw-bold">
+            <td>Total Paid</td>
+            <td class="text-end">${{ "%.2f"|format(paid_fees) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      {% else %}
+      <p class="text-muted p-3 mb-0">No payments yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── DOCUMENTS ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">Documents ({{ documents|length }})</div>
+    <div class="card-body">
+      {% if documents %}
+        <div class="row g-3">
+          {% for d in documents %}
+            {% set doc_id    = d[0] %}
+            {% set fname     = d[1] %}
+            {% set mime      = d[3] %}
+            {% set uploaded  = d[4] %}
+            {% set url       = url_for('serve_document', doc_id=doc_id) %}
+            {% set dl_url    = url_for('download_document', doc_id=doc_id) %}
+            <div class="col-md-6">
+              <div class="card h-100">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                  <span class="text-truncate me-2" title="{{ fname }}">
+                    {% if mime.startswith('image/') %}🖼️
+                    {% elif mime == 'application/pdf' %}📄
+                    {% else %}📎{% endif %}
+                    {{ fname }}
+                  </span>
+                  <a href="{{ dl_url }}" class="btn btn-sm btn-outline-secondary">
+                    ⬇ Download
+                  </a>
+                </div>
+                <div class="card-body p-2 text-center"
+                     style="background:#f8f9fa">
+                  {% if mime.startswith('image/') %}
+                    <a href="{{ url }}" target="_blank">
+                      <img src="{{ url }}" alt="{{ fname }}"
+                           class="img-fluid rounded"
+                           style="max-height:400px; cursor:zoom-in">
+                    </a>
+                  {% elif mime == 'application/pdf' %}
+                    <embed src="{{ url }}" type="application/pdf"
+                           width="100%" height="500px"
+                           style="border:1px solid #dee2e6; border-radius:.25rem">
+                  {% else %}
+                    <a href="{{ url }}" target="_blank"
+                       class="btn btn-outline-primary">Open file</a>
+                  {% endif %}
+                </div>
+                <div class="card-footer py-1 text-muted small">
+                  Uploaded {{ uploaded }}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted mb-0">No documents uploaded.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── REMINDER LOG ── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">Reminder Log ({{ reminder_rows|length }})</div>
+    <div class="card-body p-0">
+      {% if reminder_rows %}
+      <table class="table table-striped mb-0">
+        <thead class="table-light">
+          <tr><th>Session</th><th>Sent at</th></tr>
+        </thead>
+        <tbody>
+          {% for r in reminder_rows %}
+          <tr><td>{{ r[0] }}</td><td>{{ r[1] }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="text-muted p-3 mb-0">No reminders sent yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mb-5">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">← Back to Patients</a>
+    <a href="{{ url_for('edit_patient', id=data[0]) }}" class="btn btn-warning">✎ Edit Patient</a>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
